@@ -795,6 +795,7 @@ static void op_amo(hart_t *vm, uint32_t insn)
 
 void vm_init(hart_t *vm)
 {
+    vm->start_time = clock();
     mmu_invalidate(vm);
 }
 
@@ -828,7 +829,14 @@ void vm_step(hart_t *vm)
     vm->pc += 4;
     /* Assume no integer overflow */
     vm->instret++;
-
+    
+    vm->insn_count++;
+    if (vm->insn_count % 100000000 == 0) {
+        vm->insn_count = 0;
+        clock_t end_time = clock();
+        double elapsed = ((double)(end_time - vm->start_time)) / CLOCKS_PER_SEC;
+        printf("------------%.6f seconds------------\n", elapsed);
+    }
     uint32_t insn_opcode = insn & MASK(7), value;
     switch (insn_opcode) {
     case RV32_OP_IMM:

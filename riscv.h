@@ -2,7 +2,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-
+#include <time.h>
 #include "utils.h"
 
 /* ERR_EXCEPTION indicates that the instruction has raised one of the
@@ -133,6 +133,9 @@ struct __hart_internal {
     bool hsm_resume_is_ret;
     int32_t hsm_resume_pc;
     int32_t hsm_resume_opaque;
+    
+    uint32_t insn_count;
+    clock_t start_time;
 };
 
 struct __vm_internel {
