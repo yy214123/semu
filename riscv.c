@@ -374,7 +374,7 @@ static void mmu_fetch(hart_t *vm, uint32_t addr, uint32_t *value)
     /* cache hit */
     uint32_t idx = (addr >> ICACHE_OFFSET_BITS) & ICACHE_INDEX_MASK;
     uint32_t tag = addr >> (ICACHE_OFFSET_BITS + ICACHE_INDEX_BITS);
-    icache_block_t *blk = &vm->icache.block[idx];
+    icache_block_t *blk = &vm->icache.i_block[idx];
     uint32_t vpn = addr >> RV_PAGE_SHIFT;
     uint32_t index = __builtin_parity(vpn) & 0x1;
 
@@ -385,6 +385,25 @@ static void mmu_fetch(hart_t *vm, uint32_t addr, uint32_t *value)
         uint32_t ofs = addr & ICACHE_BLOCK_MASK;
         *value = *(const uint32_t *) (blk->base + ofs);
         return;
+    }
+
+    /* search the victim cache */
+    uint32_t vcache_key = addr >> ICACHE_OFFSET_BITS;
+    for (int i = 0; i < VCACHE_BLOCKS; i++) {
+        victim_cache_block_t *vblk = &vm->icache.v_block[i];
+
+        /* victim cache hit, swap blocks */
+        if (vblk->valid && vblk->tag == vcache_key) {
+            icache_block_t tmp = *blk;
+            *blk = *vblk;
+            *vblk = tmp;
+            blk->tag = tag;
+            vblk->tag = (tmp.tag << ICACHE_INDEX_BITS) | idx;
+
+            uint32_t ofs = addr & ICACHE_BLOCK_MASK;
+            *value = *(const uint32_t *) (blk->base + ofs);
+            return;
+        }
     }
 
 #ifdef MMU_CACHE_STATS
@@ -408,7 +427,16 @@ static void mmu_fetch(hart_t *vm, uint32_t addr, uint32_t *value)
     *value =
         vm->cache_fetch[index].page_addr[(addr >> 2) & MASK(RV_PAGE_SHIFT - 2)];
 
-    /* fill into the cache */
+    /* Move the current icache block into the victim cache before replacement */
+    if (blk->valid) {
+        victim_cache_block_t *vblk = &vm->icache.v_block[vm->icache.v_next];
+        *vblk = *blk;
+        vblk->tag = (blk->tag << ICACHE_INDEX_BITS) | idx;
+        vblk->valid = true;
+        vm->icache.v_next = (vm->icache.v_next + 1) % VCACHE_BLOCKS;
+    }
+
+    /* fill into the icache */
     uint32_t block_off = (addr & RV_PAGE_MASK) & ~ICACHE_BLOCK_MASK;
     blk->base = (const uint8_t *) vm->cache_fetch[index].page_addr + block_off;
     blk->tag = tag;

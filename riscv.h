@@ -87,6 +87,23 @@ typedef struct __vm_internel vm_t;
 #define ICACHE_OFFSET_BITS 8
 #define ICACHE_INDEX_BITS 8
 
+/* VCACHE_BLOCKS_SIZE: Size of one victim-cache block (line).
+ * VCACHE_BLOCKS: Number of blocks (lines) in the victim cache.
+ *
+ * The victim cache is implemented as a small, fully associative cache.
+ * It is designed to serve as a temporary buffer for instruction cache blocks
+ * that were recently evicted from the instruction cache.
+ *
+ * Upon an instruction cache miss, the system first checks the victim cache
+ * for the corresponding data. If the data is found (a victim cache hit),
+ * the instruction cache block and the victim cache block are swapped.
+ * Conversely, when the instruction cache is being filled with new data,
+ * the evicted old data from the instruction cache block is simultaneously
+ * placed into the victim cache.
+ */
+#define VCACHE_BLOCK_SIZE ICACHE_BLOCKS_SIZE
+#define VCACHE_BLOCKS 16
+
 /* For power-of-two sizes, (size - 1) sets all low bits to 1,
  * allowing fast extraction of an address.
  */
@@ -100,8 +117,12 @@ typedef struct {
     bool valid;
 } icache_block_t;
 
+typedef icache_block_t victim_cache_block_t;
+
 typedef struct {
-    icache_block_t block[ICACHE_BLOCKS];
+    icache_block_t i_block[ICACHE_BLOCKS];
+    victim_cache_block_t v_block[VCACHE_BLOCKS];
+    uint32_t v_next;
 } icache_t;
 
 struct __hart_internal {
