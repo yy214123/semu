@@ -36,8 +36,13 @@ typedef struct {
     uint32_t n_pages;
     uint32_t *page_addr;
 #ifdef MMU_CACHE_STATS
-    uint64_t hits;
-    uint64_t misses;
+    uint64_t total_fetch;
+    uint64_t tlb_hits;
+    uint64_t tlb_misses;
+    uint64_t icache_hits;
+    uint64_t icache_misses;
+    uint64_t vcache_hits;
+    uint64_t vcache_misses;
 #endif
 } mmu_fetch_cache_t;
 
