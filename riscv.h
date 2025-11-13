@@ -127,7 +127,7 @@ typedef icache_block_t victim_cache_block_t;
 typedef struct {
     icache_block_t i_block[ICACHE_BLOCKS];
     victim_cache_block_t v_block[VCACHE_BLOCKS];
-    uint32_t v_next;
+    uint32_t v_used[VCACHE_BLOCKS];
 } icache_t;
 
 struct __hart_internal {

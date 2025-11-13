@@ -410,6 +410,7 @@ static void mmu_fetch(hart_t *vm, uint32_t addr, uint32_t *value)
             *vblk = tmp;
             blk->tag = tag;
             vblk->tag = (tmp.tag << ICACHE_INDEX_BITS) | idx;
+            vm->icache.v_used[i] = vm->instret;
 
             uint32_t ofs = addr & ICACHE_BLOCK_MASK;
             *value = *(const uint32_t *) (blk->base + ofs);
@@ -450,11 +451,19 @@ static void mmu_fetch(hart_t *vm, uint32_t addr, uint32_t *value)
 
     /* Move the current icache block into the victim cache before replacement */
     if (blk->valid) {
-        victim_cache_block_t *vblk = &vm->icache.v_block[vm->icache.v_next];
+        uint32_t lru_min = vm->icache.v_used[0];
+        int lru_index = 0;
+        for (int i = 1; i < VCACHE_BLOCKS; i++) {
+            if (vm->icache.v_used[i] < lru_min) {
+                lru_min = vm->icache.v_used[i];
+                lru_index = i;
+            }
+        }
+        victim_cache_block_t *vblk = &vm->icache.v_block[lru_index];
         *vblk = *blk;
         vblk->tag = (blk->tag << ICACHE_INDEX_BITS) | idx;
         vblk->valid = true;
-        vm->icache.v_next = (vm->icache.v_next + 1) % VCACHE_BLOCKS;
+        vm->icache.v_used[lru_index] = vm->instret;
     }
 
     /* fill into the icache */
